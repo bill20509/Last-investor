@@ -8,7 +8,7 @@ contract LastInvestor {
     uint256 public constant INC_TIME = 1 hours;
     uint256 public start_time;
     uint256 public end_time;
-    uint256 public min_investment = 0.01 ether;
+    uint256 public min_investment;
     uint256 public totalFunds;
     string public name = "Last Investor Game";
 
@@ -20,10 +20,14 @@ contract LastInvestor {
         lastInvestTime = block.timestamp;
         start_time = block.timestamp;
         end_time = block.timestamp + 1 days;
+        min_investment = 0.01 ether;
     }
 
     function invest() external payable {
-        require(msg.value > 0, "Investment must be greater than zero");
+        require(
+            msg.value >= min_investment,
+            "Investment must be greater than min_investment"
+        );
         require(block.timestamp < end_time, "Pool is end, you can't invest");
 
         // Update last investment time and investor

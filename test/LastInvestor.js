@@ -5,7 +5,7 @@
 
 // We import Chai to use its asserting functions here.
 const { expect } = require("chai");
-
+const { ethers } = require("hardhat");
 // We use `loadFixture` to share common setups (or fixtures) between tests.
 // Using this simplifies your tests and makes them run faster, by taking
 // advantage of Hardhat Network's snapshot functionality.
@@ -51,7 +51,7 @@ describe("Last investor contract", function () {
       // const ownerBalance = await hardhatToken.balanceOf(owner.address);
       expect(await lastInvestorContract.getTotalFunds()).to.equal(0);
     });
-    it("Remain time should under 30 minutse", async function(){
+    it("Remain time should under 1 day", async function(){
       const { lastInvestorContract } = await loadFixture(deployTokenFixture);
       const remainTime = await lastInvestorContract.getTimeRemaining();
       console.log(remainTime);
@@ -60,55 +60,34 @@ describe("Last investor contract", function () {
   });
 
   describe("Transactions", function () {
-    it("Should invest succefully ", async function () {
+    it("Shoud fail if invest less than min investment", async function () {
       const { lastInvestorContract, owner, addr1, addr2 } = await loadFixture(
+        deployTokenFixture
+      );
+      // invest 
+      await expect(lastInvestorContract.invest({value: ethers.parseEther("0.009")})).to.be.revertedWith("Investment must be greater than min_investment");
+    });
+    it("Should invest succefully ", async function () {
+      const { lastInvestorContract } = await loadFixture(
         deployTokenFixture
       );
       // Get the min investment and should be 0.1 ether
       const minInvestment = await lastInvestorContract.getMinInvestment();
       console.log(minInvestment);
-      expect(minInvestment).to.equal(0.1);
-
-      // Transfer 50 tokens from addr1 to addr2
-      // We use .connect(signer) to send a transaction from another account
-      await expect(
-        hardhatToken.connect(addr1).transfer(addr2.address, 50)
-      ).to.changeTokenBalances(hardhatToken, [addr1, addr2], [-50, 50]);
+      expect(minInvestment).to.equal(ethers.parseEther("0.01"));
+      // invest 
+      await lastInvestorContract.invest({value: minInvestment});
+      const minInvestmentAfter = await lastInvestorContract.getMinInvestment();
+      expect(minInvestmentAfter).to.equal(ethers.parseEther("0.02"));
+      expect(await lastInvestorContract.getTotalFunds()).to.equal(ethers.parseEther("0.009"));
     });
 
-    it("Should emit Transfer events", async function () {
-      const { hardhatToken, owner, addr1, addr2 } = await loadFixture(
+    it("Should emit invest events", async function () {
+      const { lastInvestorContract } = await loadFixture(
         deployTokenFixture
       );
 
-      // Transfer 50 tokens from owner to addr1
-      await expect(hardhatToken.transfer(addr1.address, 50))
-        .to.emit(hardhatToken, "Transfer")
-        .withArgs(owner.address, addr1.address, 50);
-
-      // Transfer 50 tokens from addr1 to addr2
-      // We use .connect(signer) to send a transaction from another account
-      await expect(hardhatToken.connect(addr1).transfer(addr2.address, 50))
-        .to.emit(hardhatToken, "Transfer")
-        .withArgs(addr1.address, addr2.address, 50);
-    });
-
-    it("Should fail if sender doesn't have enough tokens", async function () {
-      const { hardhatToken, owner, addr1 } = await loadFixture(
-        deployTokenFixture
-      );
-      const initialOwnerBalance = await hardhatToken.balanceOf(owner.address);
-
-      // Try to send 1 token from addr1 (0 tokens) to owner.
-      // `require` will evaluate false and revert the transaction.
-      await expect(
-        hardhatToken.connect(addr1).transfer(owner.address, 1)
-      ).to.be.revertedWith("Not enough tokens");
-
-      // Owner balance shouldn't have changed.
-      expect(await hardhatToken.balanceOf(owner.address)).to.equal(
-        initialOwnerBalance
-      );
+      expect(lastInvestorContract.invest({value: ethers.parseEther("0.01")})).to.emit(lastInvestorContract, "Invest").withArgs(ethers.parseEther("0.01"));
     });
   });
 });
